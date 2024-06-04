@@ -42,7 +42,6 @@ jobs:
         with:
           java-version: '17'
           distribution: 'corretto'
-      - run: ./gradlew run --args=${{ secrets.BOT_TOKEN }}
 
   # Deployment job
   deploy:
@@ -55,3 +54,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - run: ./gradlew run --args='${{ secrets.BOT_TOKEN }}'
