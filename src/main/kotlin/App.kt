@@ -15,6 +15,7 @@ const val nonWordCharOrEnd = "([^а-яА-Я0-9a-zA-Z]|$)"
  * This method by default expects one argument in [args] field: telegram bot configuration
  */
 suspend fun main(args: Array<String>) {
+    println(args)
     val json = Json { ignoreUnknownKeys = true }
     val config: Config = json.decodeFromString(Config.serializer(), args.first())
     val bot = telegramBot(config.token) {
