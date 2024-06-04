@@ -17,15 +17,15 @@ suspend fun main(args: Array<String>) {
     args.forEach {
         println("arg = $it")
     }
-    val json = Json { ignoreUnknownKeys = true }
-    val config: Config = json.decodeFromString(Config.serializer(), args.first())
-    val bot = telegramBot(config.token) {
+//    val json = Json { ignoreUnknownKeys = true }
+//    val config: Config = json.decodeFromString(Config.serializer(), args.first())
+    val bot = telegramBot(args.first())/*  {
         client = HttpClient(OkHttp) {
             config.client?.apply {
                 setupConfig()
             }
         }
-    }
+    } */
 
     BotDelegate(bot, MessageSaveUseCase(MessagesDefaultRepository())).doSomeBotStuff()
 }
