@@ -4,6 +4,7 @@ import dev.inmo.tgbotapi.abstracts.FromUser
 import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.extensions.api.bot.getMe
 import dev.inmo.tgbotapi.extensions.api.send.reply
+import dev.inmo.tgbotapi.extensions.api.send.sendMessage
 import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
 import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onContentMessage
@@ -32,6 +33,7 @@ class BotDelegate(
 
     suspend fun doSomeBotStuff() {
         val scope = CoroutineScope(Dispatchers.Default)
+        bot.sendMessage(dev.inmo.tgbotapi.types.ChatId(183036749), "Hello World, I'm back")
         bot.buildBehaviourWithLongPolling(scope) {
             onContentMessage { message ->
                 doSomeStuffWithMessage(message)
