@@ -16,7 +16,7 @@ const val nonWordCharOrEnd = "([^а-яА-Я0-9a-zA-Z]|$)"
  */
 suspend fun main(args: Array<String>) {
     val json = Json { ignoreUnknownKeys = true }
-    val config: Config = json.decodeFromString(Config.serializer(), File(args.first()).readText())
+    val config: Config = json.decodeFromString(Config.serializer(), args.first())
     val bot = telegramBot(config.token) {
         client = HttpClient(OkHttp) {
             config.client?.apply {
