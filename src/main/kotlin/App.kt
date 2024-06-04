@@ -1,49 +1,29 @@
 import config.Config
+import data.MessagesDefaultRepository
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
-import dev.inmo.tgbotapi.extensions.api.bot.getMe
-import dev.inmo.tgbotapi.extensions.api.send.reply
-import dev.inmo.tgbotapi.extensions.behaviour_builder.buildBehaviourWithLongPolling
-import dev.inmo.tgbotapi.extensions.behaviour_builder.triggers_handling.onCommand
-import io.ktor.client.*
-import io.ktor.client.engine.okhttp.*
-import java.io.File
-import kotlinx.coroutines.*
+import domain.MessageSaveUseCase
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.serialization.json.Json
+import presentation.BotDelegate
+import java.io.File
+
+const val nonWordCharOrStart = "([^а-яА-Я0-9a-zA-Z]|^)"
+const val nonWordCharOrEnd = "([^а-яА-Я0-9a-zA-Z]|$)"
 
 /**
  * This method by default expects one argument in [args] field: telegram bot configuration
  */
 suspend fun main(args: Array<String>) {
-    // create json to decode config
     val json = Json { ignoreUnknownKeys = true }
-    // decode config
     val config: Config = json.decodeFromString(Config.serializer(), File(args.first()).readText())
-    // that is your bot
     val bot = telegramBot(config.token) {
         client = HttpClient(OkHttp) {
-            config.client ?.apply {
-                // setting up telegram bot client
+            config.client?.apply {
                 setupConfig()
             }
         }
     }
 
-    // that is kotlin coroutine scope which will be used in requests and parallel works under the hood
-    val scope = CoroutineScope(Dispatchers.Default)
-
-    // here should be main logic of your bot
-    bot.buildBehaviourWithLongPolling(scope) {
-        // in this lambda you will be able to call methods without "bot." prefix
-        val me = getMe()
-
-        // this method will create point to react on each /start command
-        onCommand("start", requireOnlyCommandInMessage = true) {
-            // simply reply :)
-            reply(it, "Hello, I am ${me.firstName}")
-        }
-
-        // That will be called on the end of bot initiation. After that println will be started long polling and bot will
-        // react on your commands
-        println(me)
-    }.join()
+    BotDelegate(bot, MessageSaveUseCase(MessagesDefaultRepository())).doSomeBotStuff()
 }
