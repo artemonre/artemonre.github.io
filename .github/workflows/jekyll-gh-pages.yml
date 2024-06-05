@@ -42,8 +42,14 @@ jobs:
         with:
           java-version: '17'
           distribution: 'corretto'
-      - name: Build
-        run: ./gradlew build
+      - name: Build with Gradle
+        run: gradle build
+
+      - name: Publish to GitHub Packages
+        run: gradle publish
+        env:
+          USERNAME: ${{ github.actor }}
+          PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 
   # Deployment job
   deploy:
