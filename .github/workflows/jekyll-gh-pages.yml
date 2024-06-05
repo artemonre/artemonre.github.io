@@ -37,6 +37,13 @@ jobs:
           destination: ./_site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4.2.1
+        with:
+          java-version: '17'
+          distribution: 'corretto'
+      - name: Build
+        run: ./gradlew build
 
   # Deployment job
   deploy:
@@ -49,12 +56,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-      - name: Setup Java JDK
-        uses: actions/setup-java@v4.2.1
-        with:
-          java-version: '17'
-          distribution: 'corretto'
-      - name: Run the code
-        env:
-          bot_token: ${{ secrets.BOT_TOKEN }}
-        run: ./gradlew run --args="$bot_token"
