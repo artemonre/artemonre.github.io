@@ -23,7 +23,7 @@ publishing {
             url = uri("https://maven.pkg.github.com/artemonre/artemonre.github.io")
             credentials {
                 username = project.findProperty("gpr.user") ?: System.getenv("artemonre")
-                password = project.findProperty("gpr.key") ?: System.getenv("waeyrgrt")
+                password = project.findProperty("gpr.key") ?: System.getenv("")
             }
         }
     }
