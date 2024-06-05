@@ -22,8 +22,8 @@ publishing {
             name = "GitHubPackages"
             url = uri("https://maven.pkg.github.com/artemonre/artemonre.github.io")
             credentials {
-                username = project.findProperty("gpr.user")
-                password = project.findProperty("gpr.key")
+                username = project.findProperty("gpr.user") ?: System.getenv("artemonre")
+                password = project.findProperty("gpr.key") ?: System.getenv("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")
             }
         }
     }
