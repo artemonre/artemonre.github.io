@@ -4,8 +4,6 @@ import dev.inmo.tgbotapi.bot.TelegramBot
 import dev.inmo.tgbotapi.extensions.api.send.reply
 import dev.inmo.tgbotapi.types.message.abstracts.CommonMessage
 import dev.inmo.tgbotapi.types.message.content.MessageContent
-import nonWordCharOrEnd
-import nonWordCharOrStart
 
 class BotCallsDelegate(private val bot: TelegramBot) {
 
@@ -43,10 +41,13 @@ class BotCallsDelegate(private val bot: TelegramBot) {
     }
 
     companion object {
+        const val nonWordCharOrStart = "([^а-яА-Я0-9a-zA-Z]|^)"
+        const val nonWordCharOrEnd = "([^а-яА-Я0-9a-zA-Z]|$)"
+
         val botCalledRegexes = listOf(
             "${nonWordCharOrStart}бот$nonWordCharOrEnd".toRegex(),
             "${nonWordCharOrStart}ботя$nonWordCharOrEnd".toRegex(),
-            "${nonWordCharOrStart}ботик$nonWordCharOrEnd".toRegex()
+            "${nonWordCharOrStart}ботик$nonWordCharOrEnd".toRegex(),
         )
         val reminderAskedRegexes = listOf(
             "${nonWordCharOrStart}напоминалка$nonWordCharOrEnd".toRegex(),

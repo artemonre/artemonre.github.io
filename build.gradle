@@ -13,25 +13,6 @@ plugins {
     alias libs.plugins.kotlin.jvm
     alias libs.plugins.kotlin.serialization
     id 'application'
-    id 'maven-publish'
-}
-
-publishing {
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/artemonre/artemonre.github.io")
-            credentials {
-                username = project.findProperty("gpr.user") ?: System.getenv("artemonre")
-                password = project.findProperty("gpr.key") ?: System.getenv("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")
-            }
-        }
-    }
-    publications {
-        gpr(MavenPublication) {
-            from(components.java)
-        }
-    }
 }
 
 repositories {
