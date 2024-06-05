@@ -42,10 +42,8 @@ jobs:
         with:
           java-version: '17'
           distribution: 'corretto'
-      - name: Run the code
-        env:
-          bot_token: ${{ secrets.BOT_TOKEN }}
-        run: ./gradlew run --args="$bot_token"
+      - name: Build
+        run: ./gradlew build
 
   # Deployment job
   deploy:
