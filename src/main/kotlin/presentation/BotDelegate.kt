@@ -17,19 +17,24 @@ import dev.inmo.tgbotapi.types.message.abstracts.CommonMessage
 import dev.inmo.tgbotapi.types.message.content.MessageContent
 import dev.inmo.tgbotapi.types.message.textsources.TextSource
 import dev.inmo.tgbotapi.utils.extensions.makeString
-import domain.MessageSaveUseCase
+import domain.usecase.MessageSaveUseCase
 import domain.model.ChatId
 import domain.model.TelegramMessage
 import domain.model.UserId
+import domain.usecase.ScheduledMessageSaveUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import java.time.LocalDateTime
 
 class BotDelegate(
-    val bot: TelegramBot,
-    val saveMessage: MessageSaveUseCase,
+    private val bot: TelegramBot,
+    private val saveMessage: MessageSaveUseCase
 ) {
 
     private var isStarted = false
+    private val botCallsDelegate by lazy {
+        BotCallsDelegate(bot)
+    }
 
     suspend fun doSomeBotStuff() {
         val scope = CoroutineScope(Dispatchers.Default)
@@ -64,12 +69,11 @@ class BotDelegate(
         }.join()
     }
 
-    suspend fun doSomeStuffWithMessage(message: CommonMessage<MessageContent>) {
+    private suspend fun doSomeStuffWithMessage(message: CommonMessage<MessageContent>) {
         bot.run {
-            val botCallsDelegate = BotCallsDelegate(this)
+            botCallsDelegate.initialize()
 
             message.content.asTextContent()?.let { textContent ->
-                message.asFromUser()?.from?.firstName
                 save(message.chat.id, message.asFromUser(), textContent.textSources)
 
                 val messageText = textContent.text
@@ -85,7 +89,7 @@ class BotDelegate(
         }
     }
 
-    suspend fun save(chatId: ChatIdentifier, user: FromUser?, textSources: List<TextSource>) {
+    private suspend fun save(chatId: ChatIdentifier, user: FromUser?, textSources: List<TextSource>) {
         val text = textSources.makeString()
 
         saveMessage(
@@ -93,6 +97,7 @@ class BotDelegate(
                 ChatId(chatId.chatIdOrNull()?.chatId ?: 0),
                 UserId(user?.from?.id?.chatId ?: 0),
                 text,
+                LocalDateTime.now()
             ),
         )
         println("${user?.from?.firstName}: $text")

@@ -1,5 +1,6 @@
-package domain
+package domain.usecase
 
+import domain.repository.MessagesRepository
 import domain.model.TelegramMessage
 
 @JvmInline

@@ -1,23 +1,98 @@
 package presentation
 
+import dev.inmo.tgbotapi.extensions.utils.asFromUser
+import dev.inmo.tgbotapi.types.message.abstracts.CommonMessage
+import dev.inmo.tgbotapi.types.message.content.MessageContent
+import domain.model.ChatId
+import domain.model.TelegramScheduledMessage
+import domain.model.TelegramUser
+import domain.model.UserId
+import domain.usecase.ScheduledMessageSaveUseCase
+import domain.usecase.ScheduledMessagesDeleteUseCase
+import domain.usecase.ScheduledMessagesGetUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 
-class Reminder {
+class Reminder(
+    val scheduledMessagesSender: ScheduledMessagesSender,
+    val saveScheduledMessage: ScheduledMessageSaveUseCase,
+    val getScheduledMessages: ScheduledMessagesGetUseCase,
+    val deleteScheduledMessages: ScheduledMessagesDeleteUseCase
+) {
 
-    fun setReminder(message: String) {
-        val dateTime = countDate(System.currentTimeMillis(), message)
+    var stillAlive = false
+
+    suspend fun startReminder() {
+        val scope = CoroutineScope(Dispatchers.Default)
+        stillAlive = true
+
+        scope.launch { checkScheduledMessagesTimer() }
+    }
+
+    suspend fun scheduleMessage(message: CommonMessage<MessageContent>, messageText: String): Boolean {
+        val dateTime = countDate(System.currentTimeMillis(), messageText)
         val isBefore = dateTime.isBefore(LocalDateTime.now())
-        val dateTimeFormatted = dateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        println(
-            if (isBefore) {
-                "I can't do anything with this."
-            } else {
-                "Date and time: $dateTimeFormatted"
-            },
-        )
+
+        return if (!isBefore) {
+            val users = message.asFromUser()?.from?.let {
+                listOf(
+                    TelegramUser(
+                        UserId(it.id.chatId),
+                        it.firstName,
+                        it.username?.username
+                    )
+                )
+            } ?: emptyList()
+            println("scheduleMessage, user = ${users.firstOrNull()}")
+            saveScheduledMessage(
+                TelegramScheduledMessage(
+                    0,
+                    ChatId(message.chat.id.chatId),
+                    users,
+                    messageText,
+                    dateTime
+                )
+            )
+        } else {
+            false
+        }
+    }
+
+    private suspend fun checkScheduledMessagesTimer() {
+        while (stillAlive) {
+            val scheduledMessages = getScheduledMessages()
+
+            if (scheduledMessages.isNotEmpty()) {
+                var messageIndex = 0
+
+                while (stillAlive) {
+                    val closestMessage = scheduledMessages[messageIndex]
+
+                    if (closestMessage.scheduledDateTime.minute == LocalDateTime.now().minute) {
+                        scheduledMessagesSender.sendScheduledMessage(closestMessage)
+                        deleteScheduledMessages(listOf(closestMessage.messageId))
+                        messageIndex++
+                    }
+
+                    if (messageIndex == scheduledMessages.size) {
+                        break
+                    }
+
+                    delay(TimeUnit.MINUTES.toMillis(1))
+                    println("next minute")
+                }
+            }
+
+            delay(TimeUnit.HOURS.toMillis(1))
+            println("next hour")
+        }
     }
 
     private fun countDate(currentTimeMillis: Long, requestedTimePattern: String): LocalDateTime {
@@ -102,5 +177,9 @@ class Reminder {
         val dateLongPatternRegex = "\\d{2}\\.\\d{2}\\.\\d{2,4}".toRegex()
         val timePatternRegex = "\\d{1,2}:\\d{2}".toRegex()
         val redundantSymbolsPatternRegex = "(^\\W+)|(\\W+$)".toRegex()
+    }
+
+    interface ScheduledMessagesSender {
+        suspend fun sendScheduledMessage(message: TelegramScheduledMessage)
     }
 }
