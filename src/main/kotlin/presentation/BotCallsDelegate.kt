@@ -42,7 +42,21 @@ class BotCallsDelegate(private val bot: TelegramBot) : Reminder.ScheduledMessage
         if (containsKeywords(messageText, reminderAskedRegexes)) {
             println("contains reminder asking")
 
-            val answer = if (reminder.scheduleMessage(message, messageText)) {
+            val patternWordsList = messageText
+                .split(" ")
+                .map {
+                    println("check $it for replace")
+                    val newWord = it.replace(redundantSymbolsPatternRegex, "")
+                    newWord
+                }
+                .filterNot {
+                    println("check $it for filter")
+                    containsKeywords(it, botCalledRegexes) || containsKeywords(it, reminderAskedRegexes)
+                }
+
+            println("doWhenCalled, patternWordsList = $patternWordsList")
+
+            val answer = if (reminder.scheduleMessage(message, patternWordsList)) {
                 BotDelegate.chooseRandomAnswer(BotDelegate.confirmationTextes)
             } else {
                 "Ничем не могу помочь совсем."
@@ -76,8 +90,10 @@ class BotCallsDelegate(private val bot: TelegramBot) : Reminder.ScheduledMessage
     }
 
     companion object {
-        const val nonWordCharOrStart = "([^а-яА-Я0-9a-zA-Z]|^)"
-        const val nonWordCharOrEnd = "([^а-яА-Я0-9a-zA-Z]|$)"
+        val nonWordChar = "[^а-яА-Я0-9a-zA-Z]"
+        val nonWordCharOrStart = "($nonWordChar|^)"
+        val nonWordCharOrEnd = "($nonWordChar|$)"
+        val redundantSymbolsPatternRegex = "(^$nonWordChar+)|($nonWordChar+$)".toRegex()
 
         val botCalledRegexes = listOf(
             "${nonWordCharOrStart}бот$nonWordCharOrEnd".toRegex(),

@@ -4,7 +4,8 @@ import domain.repository.MessagesRepository
 import domain.model.TelegramMessage
 import domain.model.TelegramScheduledMessage
 import domain.usecase.ScheduledMessagesFilterTypes
-import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.LinkedList
 
 class MessagesDefaultRepository : MessagesRepository {
@@ -44,7 +45,7 @@ class MessagesDefaultRepository : MessagesRepository {
     override suspend fun getScheduledMessages(
         filterType: ScheduledMessagesFilterTypes
     ): List<TelegramScheduledMessage> {
-        val currentHour = LocalDateTime.now().hour
+        val currentHour = OffsetDateTime.now(ZoneOffset.UTC).hour
 
         return when (filterType) {
             ScheduledMessagesFilterTypes.ALL -> scheduledMessages

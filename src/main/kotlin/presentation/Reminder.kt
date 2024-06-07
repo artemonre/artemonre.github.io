@@ -15,8 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
@@ -36,9 +37,13 @@ class Reminder(
         scope.launch { checkScheduledMessagesTimer() }
     }
 
-    suspend fun scheduleMessage(message: CommonMessage<MessageContent>, messageText: String): Boolean {
-        val dateTime = countDate(System.currentTimeMillis(), messageText)
-        val isBefore = dateTime.isBefore(LocalDateTime.now())
+    suspend fun scheduleMessage(message: CommonMessage<MessageContent>, requestedDateTimeWords: List<String>): Boolean {
+        val dateTime = countDate(System.currentTimeMillis(), requestedDateTimeWords)
+        println("scheduleMessage, dateTime = $dateTime")
+        val dateTimeUtc = dateTime.toInstant().atOffset(ZoneOffset.UTC)
+        println("scheduleMessage, dateTimeUtc = $dateTimeUtc")
+        val isBefore = dateTimeUtc.isBefore(OffsetDateTime.now(ZoneOffset.UTC))
+        val notificationMessage = requestedDateTimeWords.joinToString(" ")
 
         return if (!isBefore) {
             val users = message.asFromUser()?.from?.let {
@@ -56,8 +61,8 @@ class Reminder(
                     0,
                     ChatId(message.chat.id.chatId),
                     users,
-                    messageText,
-                    dateTime
+                    notificationMessage,
+                    dateTimeUtc
                 )
             )
         } else {
@@ -75,7 +80,7 @@ class Reminder(
                 while (stillAlive) {
                     val closestMessage = scheduledMessages[messageIndex]
 
-                    if (closestMessage.scheduledDateTime.minute == LocalDateTime.now().minute) {
+                    if (closestMessage.scheduledDateTime.minute == OffsetDateTime.now().minute) {
                         scheduledMessagesSender.sendScheduledMessage(closestMessage)
                         deleteScheduledMessages(listOf(closestMessage.messageId))
                         messageIndex++
@@ -95,18 +100,32 @@ class Reminder(
         }
     }
 
-    private fun countDate(currentTimeMillis: Long, requestedTimePattern: String): LocalDateTime {
-        val patternWordsList = requestedTimePattern
-            .split(" ")
-            .map {
-                val newWord = it.replace(redundantSymbolsPatternRegex, "")
-                newWord
-            }
+    private fun countDate(
+        currentTimeMillis: Long,
+        requestedDateTimeWords: List<String>
+    ): OffsetDateTime {
+        val dateString = requestedDateTimeWords.first { isDate(it) }
+        var timeString = DEFAULT_REMINDER_TIME
+        var zoneOffset = ZoneOffset.ofHours(TIME_ZONE_DEFAULT_OFFSET)
 
-        val dateString = patternWordsList.first { isDate(it) }
-        val timeString = patternWordsList.firstOrNull { isTime(it) }
-        println("dateString = $dateString")
-        println("timeString = $timeString")
+        var textLowercase: String
+
+        for (text in requestedDateTimeWords) {
+            textLowercase = text.lowercase()
+            if (isTime(textLowercase)) {
+                timePatternRegex.find(textLowercase, 0)?.let {
+                    timeString = textLowercase.substring(it.range)
+                }
+
+                if (timeString != textLowercase) {
+                    val timezoneString = text.replace(timeString, "")
+
+                    zoneOffset = getTimezoneFromString(timezoneString.lowercase())
+                }
+            } else if (isTimeZone(text)) {
+                zoneOffset = getTimezoneFromString(text.lowercase())
+            }
+        }
 
         val date = when {
             isLongDate(dateString) -> getDateFromDateString(dateString)
@@ -116,7 +135,6 @@ class Reminder(
                 } else {
                     LocalDate.now().year + 1
                 }
-                println("yearString = $yearString")
                 getDateFromDateString("$dateString.$yearString")
             }
 
@@ -127,28 +145,46 @@ class Reminder(
 
         val time = getTimeFromString(timeString)
 
-        return LocalDateTime.of(date, time)
+        return OffsetDateTime.of(date, time, zoneOffset)
     }
 
     private fun getDateFromDateString(dateString: String): LocalDate {
         println("getDateFromString, before")
         val date = LocalDate.parse(
             dateString,
-            DateTimeFormatter.ofPattern(datePattern),
+            DateTimeFormatter.ofPattern(DATE_PATTERN),
         )
         println("getDateFromString, $date")
 
         return date
     }
 
-    private fun getTimeFromString(timeString: String?): LocalTime {
+    private fun getTimeFromString(timeString: String): LocalTime {
         val time = LocalTime.parse(
-            timeString ?: "15:00",
-            DateTimeFormatter.ofPattern(timePattern),
+            timeString,
+            DateTimeFormatter.ofPattern(TIME_PATTERN),
         )
         println("getTimeFromString, $time")
 
         return time
+    }
+
+    private fun getTimezoneFromString(timeZoneString: String): ZoneOffset {
+        val timeZone  = when {
+            timeZoneString.contains(TIME_ZONE_KEY_URAL) ||
+                    timeZoneString.contains(TIME_ZONE_KEY_URAL1) -> ZoneOffset.ofHours(TIME_ZONE_URAL_OFFSET)
+            timeZoneString.contains(timeZonePatternRegex) -> {
+                println("timezone = ${timeZoneString.toIntOrNull()}")
+                ZoneOffset.ofHours(timeZoneString.toIntOrNull() ?: TIME_ZONE_DEFAULT_OFFSET)
+            }
+            else -> {
+                ZoneOffset.ofHours(TIME_ZONE_DEFAULT_OFFSET)
+            }
+        }
+
+        println("getTimezoneFromString, $timeZone")
+
+        return timeZone
     }
 
     private fun isDate(maybeDate: String): Boolean {
@@ -158,7 +194,15 @@ class Reminder(
 
     private fun isTime(maybeTime: String): Boolean {
         println("is time $maybeTime")
-        return maybeTime.matches(timePatternRegex)
+        return maybeTime.contains(timePatternRegex)
+    }
+
+    private fun isTimeZone(maybeTimeZone: String): Boolean {
+        println("is time $maybeTimeZone")
+        return maybeTimeZone.contains(TIME_ZONE_KEY_MOSCOW) ||
+                maybeTimeZone.contains(TIME_ZONE_KEY_URAL) ||
+                maybeTimeZone.contains(TIME_ZONE_KEY_URAL1) ||
+                maybeTimeZone.contains(timeZonePatternRegex)
     }
 
     private fun isShortDate(date: String): Boolean = date.matches(dateShortPatternRegex)
@@ -171,12 +215,18 @@ class Reminder(
     }
 
     companion object {
-        const val datePattern = "dd.MM.yyyy"
-        const val timePattern = "HH:mm"
+        const val TIME_ZONE_DEFAULT_OFFSET = 3
+        const val TIME_ZONE_URAL_OFFSET = 5
+        const val TIME_ZONE_KEY_MOSCOW = "мск"
+        const val TIME_ZONE_KEY_URAL = "екб"
+        const val TIME_ZONE_KEY_URAL1 = "сысерть"
+        const val DATE_PATTERN = "dd.MM.yyyy"
+        const val TIME_PATTERN = "HH:mm"
+        const val DEFAULT_REMINDER_TIME = "15:00"
         val dateShortPatternRegex = "\\d{2}\\.\\d{2}".toRegex()
         val dateLongPatternRegex = "\\d{2}\\.\\d{2}\\.\\d{2,4}".toRegex()
         val timePatternRegex = "\\d{1,2}:\\d{2}".toRegex()
-        val redundantSymbolsPatternRegex = "(^\\W+)|(\\W+$)".toRegex()
+        val timeZonePatternRegex = "([+\\-])\\d{1,2}".toRegex()
     }
 
     interface ScheduledMessagesSender {
