@@ -25,7 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import java.time.LocalDateTime
 
-class BotDelegate(
+class MainBotClass(
     private val bot: TelegramBot,
     private val saveMessage: MessageSaveUseCase
 ) {
@@ -47,7 +47,7 @@ class BotDelegate(
 
             onCommand("start", requireOnlyCommandInMessage = true) {
                 println("Start command, text = $me")
-                reply(it, "Hello, I am ${me.firstName}")
+                reply(it, "Привет, меня зовут ${me.firstName}")
             }
 
             onCommand("history", requireOnlyCommandInMessage = false) {
@@ -57,12 +57,17 @@ class BotDelegate(
 //                    stringBuilder.append("\n")
 //                    stringBuilder.append(it)
 //                }
-                reply(it, "Here are all messages I saved yet:\n$stringBuilder")
+                reply(it, "Вот список запрошенных сообщений:\n$stringBuilder")
+            }
+
+            onCommand("timezone_[0-9a-zA-Zа-яА-Я]+".toRegex(), requireOnlyCommandInMessage = true) {
+                println("timezone command, text = $me")
+                reply(it, "Поменял стандартный часовой пояс для напоминалок на ${it.content}")
             }
 
             onUnhandledCommand {
                 println("Unknown command, text = $me")
-                reply(it, "I can do nothing for you, sorry.")
+                reply(it, "Ничем не могу помочь, сорян.")
             }
             println(me)
         }.join()
@@ -77,7 +82,10 @@ class BotDelegate(
 
                 val messageText = textContent.text
 
-                if (botCallsDelegate.containsKeywords(messageText, BotCallsDelegate.botCalledRegexes)) {
+                if (
+                    botCallsDelegate.containsKeywords(messageText, BotCallsDelegate.botCalledRegexes) ||
+                    isPrivateChat(message)
+                ) {
                     botCallsDelegate.doWhenCalled(message, messageText)
                 }
 
@@ -101,6 +109,10 @@ class BotDelegate(
         )
         println("${user?.from?.firstName}: $text")
     }
+
+    private fun isPrivateChat(
+        message: CommonMessage<MessageContent>
+    ) = message.chat.id.chatId == message.asFromUser()?.from?.id?.chatId
 
     companion object {
         val offenceTextes = listOf(

@@ -3,7 +3,7 @@ import data.MessagesDefaultRepository
 import dev.inmo.tgbotapi.bot.ktor.telegramBot
 import domain.usecase.MessageSaveUseCase
 import kotlinx.serialization.json.Json
-import presentation.BotDelegate
+import presentation.MainBotClass
 import java.io.File
 
 /**
@@ -20,5 +20,5 @@ suspend fun main(args: Array<String>) {
         }
     } */
 
-    BotDelegate(bot, MessageSaveUseCase(MessagesDefaultRepository())).doSomeBotStuff()
+    MainBotClass(bot, MessageSaveUseCase(MessagesDefaultRepository())).doSomeBotStuff()
 }

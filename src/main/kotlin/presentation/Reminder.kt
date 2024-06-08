@@ -14,10 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.OffsetDateTime
-import java.time.ZoneOffset
+import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
@@ -37,7 +34,10 @@ class Reminder(
         scope.launch { checkScheduledMessagesTimer() }
     }
 
-    suspend fun scheduleMessage(message: CommonMessage<MessageContent>, requestedDateTimeWords: List<String>): Boolean {
+    suspend fun scheduleMessage(
+        message: CommonMessage<MessageContent>,
+        requestedDateTimeWords: List<String>
+    ): Boolean {
         val dateTime = countDate(System.currentTimeMillis(), requestedDateTimeWords)
         println("scheduleMessage, dateTime = $dateTime")
         val dateTimeUtc = dateTime.toInstant().atOffset(ZoneOffset.UTC)
@@ -90,13 +90,13 @@ class Reminder(
                         break
                     }
 
-                    delay(TimeUnit.MINUTES.toMillis(1))
-                    println("next minute")
+                    delay(TimeUnit.SECONDS.toMillis(30))
+                    println("next half minute")
                 }
             }
 
-            delay(TimeUnit.HOURS.toMillis(1))
-            println("next hour")
+            delay(TimeUnit.MINUTES.toMillis(5))
+            println("next 10 minutes")
         }
     }
 
@@ -127,7 +127,16 @@ class Reminder(
             }
         }
 
-        val date = when {
+        val date = getDateFromString(dateString)
+
+        val time = getTimeFromString(timeString)
+
+        return OffsetDateTime.of(date, time, zoneOffset)
+    }
+
+    private fun getDateFromString(dateString: String): LocalDate {
+        println("getDateFromString, before")
+        return when {
             isLongDate(dateString) -> getDateFromDateString(dateString)
             isShortDate(dateString) -> {
                 val yearString = if (isDateAfterToday(dateString)) {
@@ -138,26 +147,18 @@ class Reminder(
                 getDateFromDateString("$dateString.$yearString")
             }
 
+            isDayDate(dateString) -> getDateFromDayString(dateString)
+            isDayOfWeekDate(dateString) -> getDateFromDayOfWeekString(dateString)
             else -> {
                 LocalDate.now()
             }
         }
-
-        val time = getTimeFromString(timeString)
-
-        return OffsetDateTime.of(date, time, zoneOffset)
     }
 
-    private fun getDateFromDateString(dateString: String): LocalDate {
-        println("getDateFromString, before")
-        val date = LocalDate.parse(
-            dateString,
-            DateTimeFormatter.ofPattern(DATE_PATTERN),
-        )
-        println("getDateFromString, $date")
-
-        return date
-    }
+    private fun getDateFromDateString(date: String) = LocalDate.parse(
+        date,
+        DateTimeFormatter.ofPattern(DATE_PATTERN),
+    )
 
     private fun getTimeFromString(timeString: String): LocalTime {
         val time = LocalTime.parse(
@@ -170,13 +171,17 @@ class Reminder(
     }
 
     private fun getTimezoneFromString(timeZoneString: String): ZoneOffset {
-        val timeZone  = when {
-            timeZoneString.contains(TIME_ZONE_KEY_URAL) ||
-                    timeZoneString.contains(TIME_ZONE_KEY_URAL1) -> ZoneOffset.ofHours(TIME_ZONE_URAL_OFFSET)
+        val timeZone = when {
+            timeZoneUralRegex.matches(timeZoneString) ||
+                    timeZoneUral1Regex.matches(timeZoneString) ||
+                    timeZoneUral2Regex.matches(timeZoneString) ||
+                    timeZoneUral3Regex.matches(timeZoneString) -> ZoneOffset.ofHours(TIME_ZONE_URAL_OFFSET)
+
             timeZoneString.contains(timeZonePatternRegex) -> {
                 println("timezone = ${timeZoneString.toIntOrNull()}")
                 ZoneOffset.ofHours(timeZoneString.toIntOrNull() ?: TIME_ZONE_DEFAULT_OFFSET)
             }
+
             else -> {
                 ZoneOffset.ofHours(TIME_ZONE_DEFAULT_OFFSET)
             }
@@ -187,44 +192,114 @@ class Reminder(
         return timeZone
     }
 
+    private fun getDateFromDayString(day: String): LocalDate = when {
+        dateTomorrowPatternRegex.matches(day) -> LocalDate.now().plusDays(1)
+        dateAfterTomorrowPatternRegex.matches(day) -> LocalDate.now().plusDays(2)
+        else -> LocalDate.now()
+    }
+
+    private fun getDateFromDayOfWeekString(dayOfWeek: String): LocalDate {
+        val today = LocalDate.now().dayOfWeek
+
+        val amountOfDays = when {
+            dayOfWeek.contains(dateMondayPatternRegex) -> getDaysUntil(today.value, DayOfWeek.MONDAY.value)
+            dayOfWeek.contains(dateTuesdayPatternRegex) -> getDaysUntil(today.value, DayOfWeek.TUESDAY.value)
+            dayOfWeek.contains(dateWednesdayPatternRegex) -> getDaysUntil(today.value, DayOfWeek.WEDNESDAY.value)
+            dayOfWeek.contains(dateThursdayPatternRegex) -> getDaysUntil(today.value, DayOfWeek.THURSDAY.value)
+            dayOfWeek.contains(dateFridayPatternRegex) -> getDaysUntil(today.value, DayOfWeek.FRIDAY.value)
+            dayOfWeek.contains(dateSaturdayPatternRegex) -> getDaysUntil(today.value, DayOfWeek.SATURDAY.value)
+            dayOfWeek.contains(dateSundayPatternRegex) -> getDaysUntil(today.value, DayOfWeek.SUNDAY.value)
+            else -> 0
+        }
+
+        return LocalDate.now().plusDays(amountOfDays)
+    }
+
+    private fun getDaysUntil(today: Int, requestedDay: Int): Long {
+        val amountOfDays = if (today >= requestedDay) {
+            7 - today + requestedDay
+        } else {
+            requestedDay - today
+        }
+
+        return amountOfDays.toLong()
+    }
+
     private fun isDate(maybeDate: String): Boolean {
-        println("is date $maybeDate")
-        return isLongDate(maybeDate) || isShortDate(maybeDate)
+        println("isDate $maybeDate")
+        return isLongDate(maybeDate) ||
+                isShortDate(maybeDate) ||
+                isDayDate(maybeDate) ||
+                isDayOfWeekDate(maybeDate)
     }
 
     private fun isTime(maybeTime: String): Boolean {
-        println("is time $maybeTime")
+        println("isTime $maybeTime")
         return maybeTime.contains(timePatternRegex)
     }
 
     private fun isTimeZone(maybeTimeZone: String): Boolean {
-        println("is time $maybeTimeZone")
-        return maybeTimeZone.contains(TIME_ZONE_KEY_MOSCOW) ||
-                maybeTimeZone.contains(TIME_ZONE_KEY_URAL) ||
-                maybeTimeZone.contains(TIME_ZONE_KEY_URAL1) ||
+        println("isTimeZone $maybeTimeZone")
+        return maybeTimeZone.contains(timeZoneMoscowRegex) ||
+                maybeTimeZone.contains(timeZoneUralRegex) ||
+                maybeTimeZone.contains(timeZoneUral1Regex) ||
+                maybeTimeZone.contains(timeZoneUral2Regex) ||
+                maybeTimeZone.contains(timeZoneUral3Regex) ||
                 maybeTimeZone.contains(timeZonePatternRegex)
     }
 
-    private fun isShortDate(date: String): Boolean = date.matches(dateShortPatternRegex)
+    private fun isShortDate(date: String): Boolean = dateShortPatternRegex.matches(date)
 
-    private fun isLongDate(date: String): Boolean = date.matches(dateLongPatternRegex)
+    private fun isLongDate(date: String): Boolean = dateLongPatternRegex.matches(date)
+
+    private fun isDayDate(date: String): Boolean =
+        dateTodayPatternRegex.matches(date) ||
+                dateTomorrowPatternRegex.matches(date) ||
+                dateAfterTomorrowPatternRegex.matches(date)
+
+    private fun isDayOfWeekDate(date: String): Boolean =
+        dateMondayPatternRegex.matches(date) ||
+                dateTuesdayPatternRegex.matches(date) ||
+                dateWednesdayPatternRegex.matches(date) ||
+                dateThursdayPatternRegex.matches(date) ||
+                dateFridayPatternRegex.matches(date) ||
+                dateSaturdayPatternRegex.matches(date) ||
+                dateSundayPatternRegex.matches(date)
 
     private fun isDateAfterToday(date: String): Boolean {
         val now = LocalDate.now()
-        return getDateFromDateString("$date.${now.year}").isAfter(now)
+        return getDateFromString("$date.${now.year}").isAfter(now)
     }
 
     companion object {
         const val TIME_ZONE_DEFAULT_OFFSET = 3
         const val TIME_ZONE_URAL_OFFSET = 5
-        const val TIME_ZONE_KEY_MOSCOW = "мск"
-        const val TIME_ZONE_KEY_URAL = "екб"
-        const val TIME_ZONE_KEY_URAL1 = "сысерть"
         const val DATE_PATTERN = "dd.MM.yyyy"
         const val TIME_PATTERN = "HH:mm"
         const val DEFAULT_REMINDER_TIME = "15:00"
+        val timeZoneMoscowRegex = "м.?ск.?.?".toRegex()
+        val timeZoneUralRegex = "ек[а-яА-Я]{0,6}б[а-яА-Я]{0,3}".toRegex()
+        val timeZoneUral1Regex = "екат.?".toRegex()
+        val timeZoneUral2Regex = "с.?с.?рт.?".toRegex()
+        val timeZoneUral3Regex = "урал.?".toRegex()
+        val dateAfterPatternRegex = "ч.?р.?з".toRegex()
+        val dateAfterMinutesPatternRegex = "м.?н.?т.?".toRegex()
+        val dateAfterHoursPatternRegex = "ч.?с.?.?".toRegex()
+        val dateAfterDaysPatternRegex = "дн.?.?".toRegex()
+        val dateAfterWeeksPatternRegex = "н.?д.?л.?".toRegex()
+        val dateAfterMonthsPatternRegex = "м.?с.?ц.?.?".toRegex()
         val dateShortPatternRegex = "\\d{2}\\.\\d{2}".toRegex()
         val dateLongPatternRegex = "\\d{2}\\.\\d{2}\\.\\d{2,4}".toRegex()
+        val dateTodayPatternRegex = "с.?г.?дн.?".toRegex()
+        val dateTomorrowPatternRegex = "з.?вт.?.?".toRegex()
+        val dateAfterTomorrowPatternRegex = "п.?сл.?з.?вт.?.?".toRegex()
+        val dateMondayPatternRegex = "п.?н.?д[а-яА-Я]{0,6}".toRegex()
+        val dateTuesdayPatternRegex = "вт[а-яА-Я]{0,5}".toRegex()
+        val dateWednesdayPatternRegex = "ср[а-яА-Я]{0,3}".toRegex()
+        val dateThursdayPatternRegex = "ч.?т[а-яА-Я]{0,4}".toRegex()
+        val dateFridayPatternRegex = "п.?т[а-яА-Я]{0,4}".toRegex()
+        val dateSaturdayPatternRegex = "с.?б[а-яА-Я]{0,4}".toRegex()
+        val dateSundayPatternRegex = "в.?с[а-яА-Я]{0,8}".toRegex()
         val timePatternRegex = "\\d{1,2}:\\d{2}".toRegex()
         val timeZonePatternRegex = "([+\\-])\\d{1,2}".toRegex()
     }

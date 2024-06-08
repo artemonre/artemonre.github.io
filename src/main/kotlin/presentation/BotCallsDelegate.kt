@@ -30,14 +30,6 @@ class BotCallsDelegate(private val bot: TelegramBot) : Reminder.ScheduledMessage
         }
     }
 
-    override suspend fun sendScheduledMessage(message: TelegramScheduledMessage) {
-        val messageText = """
-            ${message.usersToTag.map { it.nickName }.joinToString(" ")}
-            ${message.text}
-        """.trimIndent()
-        bot.sendMessage(ChatId(message.chatId.id), messageText)
-    }
-
     suspend fun doWhenCalled(message: CommonMessage<MessageContent>, messageText: String) {
         if (containsKeywords(messageText, reminderAskedRegexes)) {
             println("contains reminder asking")
@@ -45,19 +37,17 @@ class BotCallsDelegate(private val bot: TelegramBot) : Reminder.ScheduledMessage
             val patternWordsList = messageText
                 .split(" ")
                 .map {
-                    println("check $it for replace")
                     val newWord = it.replace(redundantSymbolsPatternRegex, "")
                     newWord
                 }
                 .filterNot {
-                    println("check $it for filter")
                     containsKeywords(it, botCalledRegexes) || containsKeywords(it, reminderAskedRegexes)
                 }
 
             println("doWhenCalled, patternWordsList = $patternWordsList")
 
             val answer = if (reminder.scheduleMessage(message, patternWordsList)) {
-                BotDelegate.chooseRandomAnswer(BotDelegate.confirmationTextes)
+                MainBotClass.chooseRandomAnswer(MainBotClass.confirmationTextes)
             } else {
                 "Ничем не могу помочь совсем."
             }
@@ -66,7 +56,7 @@ class BotCallsDelegate(private val bot: TelegramBot) : Reminder.ScheduledMessage
                 answer
             )
         } else {
-            bot.reply(message, BotDelegate.chooseRandomAnswer(BotDelegate.meTextes))
+            bot.reply(message, MainBotClass.chooseRandomAnswer(MainBotClass.meTextes))
         }
     }
 
@@ -87,6 +77,14 @@ class BotCallsDelegate(private val bot: TelegramBot) : Reminder.ScheduledMessage
     fun containsDate(maybeDateString: String): Boolean {
         return maybeDateString.contains(Reminder.dateLongPatternRegex) ||
                 maybeDateString.contains(Reminder.dateShortPatternRegex)
+    }
+
+    override suspend fun sendScheduledMessage(message: TelegramScheduledMessage) {
+        val messageText = """
+            ${message.usersToTag.map { it.nickName }.joinToString(" ")}
+            ${message.text}
+        """.trimIndent()
+        bot.sendMessage(ChatId(message.chatId.id), messageText)
     }
 
     companion object {

@@ -45,22 +45,17 @@ class MessagesDefaultRepository : MessagesRepository {
     override suspend fun getScheduledMessages(
         filterType: ScheduledMessagesFilterTypes
     ): List<TelegramScheduledMessage> {
-        val currentHour = OffsetDateTime.now(ZoneOffset.UTC).hour
+        val currentTime = OffsetDateTime.now(ZoneOffset.UTC)
 
         return when (filterType) {
             ScheduledMessagesFilterTypes.ALL -> scheduledMessages
             ScheduledMessagesFilterTypes.MONTH -> emptyList()
             ScheduledMessagesFilterTypes.WEEK -> emptyList()
             ScheduledMessagesFilterTypes.DAY -> emptyList()
-//            TODO need to found better solution with early stop
-            ScheduledMessagesFilterTypes.CURRENT_HOUR -> {
+            ScheduledMessagesFilterTypes.CURRENT_CYCLE -> {
+//            TODO need to found better solution, with early stop
                 scheduledMessages.filter {
-                    it.scheduledDateTime.hour == currentHour
-                }
-            }
-            ScheduledMessagesFilterTypes.NEXT_HOUR -> {
-                scheduledMessages.filter {
-                    it.scheduledDateTime.hour == currentHour + 1
+                    it.scheduledDateTime.isBefore(currentTime.plusMinutes(10))
                 }
             }
             ScheduledMessagesFilterTypes.CLOSEST -> listOf(scheduledMessages.first)

@@ -7,10 +7,10 @@ import domain.model.TelegramScheduledMessage
 value class ScheduledMessagesGetUseCase(val repository: MessagesRepository) {
 
     suspend inline operator fun invoke(
-        filterType: ScheduledMessagesFilterTypes = ScheduledMessagesFilterTypes.CURRENT_HOUR
+        filterType: ScheduledMessagesFilterTypes = ScheduledMessagesFilterTypes.CURRENT_CYCLE
     ): List<TelegramScheduledMessage> = repository.getScheduledMessages(filterType)
 }
 
 enum class ScheduledMessagesFilterTypes {
-    ALL, MONTH, WEEK, DAY, CURRENT_HOUR, NEXT_HOUR, CLOSEST
+    ALL, MONTH, WEEK, DAY, CURRENT_CYCLE, CLOSEST
 }
