@@ -22,3 +22,5 @@ suspend fun main(args: Array<String>) {
 
     MainBotClass(bot, MessageSaveUseCase(MessagesDefaultRepository())).doSomeBotStuff()
 }
+
+const val version = "0.1"

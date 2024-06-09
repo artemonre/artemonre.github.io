@@ -23,6 +23,7 @@ import domain.model.TelegramMessage
 import domain.model.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import version
 import java.time.LocalDateTime
 
 class MainBotClass(
@@ -63,6 +64,10 @@ class MainBotClass(
             onCommand("timezone_[0-9a-zA-Zа-яА-Я]+".toRegex(), requireOnlyCommandInMessage = true) {
                 println("timezone command, text = $me")
                 reply(it, "Поменял стандартный часовой пояс для напоминалок на ${it.content}")
+            }
+
+            onCommand("version", requireOnlyCommandInMessage = true) {
+                reply(it, "Текущая версия: $version")
             }
 
             onUnhandledCommand {

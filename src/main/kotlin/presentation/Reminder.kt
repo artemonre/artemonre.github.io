@@ -278,7 +278,7 @@ class Reminder(
         const val TIME_PATTERN = "HH:mm"
         const val DEFAULT_REMINDER_TIME = "15:00"
         val timeZoneMoscowRegex = "м.?ск.?.?".toRegex()
-        val timeZoneUralRegex = "ек[а-яА-Я]{0,6}б[а-яА-Я]{0,3}".toRegex()
+        val timeZoneUralRegex = "ек[а-яА-Я]{0,6}б[а-яА-Я]{0,4}".toRegex()
         val timeZoneUral1Regex = "екат.?".toRegex()
         val timeZoneUral2Regex = "с.?с.?рт.?".toRegex()
         val timeZoneUral3Regex = "урал.?".toRegex()
